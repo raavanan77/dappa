@@ -1,0 +1,3 @@
+hex = ['7D','BB','F9','37','75','B3','F1','2F','6D','AB','E9','27','65','A3','E1','1F','5D','9B','D9','17','55','93','D1','F','4D','8B','DE','1C','5A','98','D6','14','52','90','CE','A0','BE','FC','3A','78','B6','F4','32','70','AE','EC','2A','68','A6','E4','22','60','9E','DC','1A','58','96','D4','12','50','8D','CB']
+for i,a in zip(hex,"abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"):
+    print(a,'-',hex.count(i))
