@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <signal.h>
 #include "caesar.h"
+#include <pthread.h>
 
 typedef char* string;
 
@@ -28,9 +29,55 @@ void error(const char *msg){
     exit(1);
 }
 
+void *listener(void *nsock){
+    int listen;
+    int sock = *(int *) nsock;
+    char listen_buffer[256];
+    while(stop) {
+        if (stop == 0) break;
+        bzero(listen_buffer, 256);
+        listen = read(sock, listen_buffer, 255);
+        if(listen <= 0) break;
+        
+        listen_buffer[listen] = '\0';
+        caesar_decrypt(-13, listen_buffer);
+        if(listen_buffer > 0){
+            if(strcmp(listen_buffer, "/help\n") == 0){
+                caesar_encrypt(13, help);
+                listen = write(sock, help, strlen(help));
+                if(listen < 0) error("ERROR : Writing to socket\n");
+            }
+            continue;
+        }
+        printf("Client says: %s", listen_buffer);
+    }
+}
+
+void *sender(void *nsock){
+    int send;
+    int sock = *(int *) nsock;
+    char sender_buffer[256];
+    while(stop) {
+        if (stop == 0) break;
+        printf("Enter your message: ");
+        bzero(sender_buffer, 256);
+        fgets(sender_buffer, 255, stdin);
+        if(sender_buffer > 0){
+            if(strcmp(sender_buffer, "/close") == 0){
+                //break;
+                exit(1);
+            }
+        }
+        caesar_encrypt(13, sender_buffer);
+        send = write(sock, sender_buffer, strlen(sender_buffer));
+        if(send < 0) error("ERROR : Writing to socket\n");
+    }
+}
+
 int main(int argc, char *argv[]){
     int sockfd, nsockfd, portno;
     socklen_t clilen;
+    pthread_t listen_t, sender_t;
     char buffer[256];
     struct sockaddr_in serv_addr, cli_addr;
     int n;
@@ -60,28 +107,11 @@ int main(int argc, char *argv[]){
         error("ERROR : Accept failed\n");
     }
     signal(SIGINT, killserver);
-    while(stop) {
-        if (stop == 0) break;
-        bzero(buffer, 256);
-        n = read(nsockfd, buffer, 255);
-        if(n <= 0) break;
-        
-        buffer[n] = '\0';
-        caesar_decrypt(-13, buffer);
-        printf("Client says: %s", buffer);
-        if(strcmp(buffer,"/help") == 1){
-            caesar_encrypt(13, help);
-            n = write(nsockfd, help, strlen(help));
-            continue;
-        }
-        printf("Enter your message: ");
-        bzero(buffer, 256);
-        fgets(buffer, 255, stdin);
-        caesar_encrypt(13, buffer);
-        n = write(nsockfd, buffer, strlen(buffer));
-        if(n < 0) error("ERROR : Writing to socket\n");
-    }
-    
+    pthread_create(&listen_t, NULL, listener, &nsockfd);
+    pthread_create(&sender_t, NULL, sender, &nsockfd);
+    pthread_join(listen_t, NULL);
+    pthread_join(sender_t, NULL);
+
     close(nsockfd);
     close(sockfd);
     return 0;
