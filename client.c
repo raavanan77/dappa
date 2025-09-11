@@ -8,13 +8,13 @@
 #include <netdb.h>
 #include <pthread.h>
 #include <signal.h>
-#include "caesar.h"
 #include "vi.h"
 
 
 static volatile int stop = 1;
 
 struct vi_frame msg;
+struct vi_frame recv_data;
 
 void killserver(){
     stop = 0;
@@ -25,8 +25,6 @@ void error(const char *msg){
     perror(msg);
     exit(0);
 }
-
-struct vi_frame recv_data;
 
 void *listener(void *nsock){
     int listen;
@@ -65,6 +63,10 @@ void *sender(void *nsock){
         memset(buffer, 0, 256);
         fgets(buffer, 255, stdin);
         buffer[strcspn(buffer, "\n")] = '\0';
+        if(strlen(buffer) > 0 && strcmp(buffer,"/close") == 0){
+            stop = 0;
+            exit(1);
+        }
         msg.payload_size = strlen(buffer) + 1;
         msg.payload = malloc(msg.payload_size);  // +1 for null terminator
         if (msg.payload == NULL) {
@@ -73,12 +75,6 @@ void *sender(void *nsock){
             //return -1;
         }
         strcpy(msg.payload, buffer);
-        if(msg.payload_size > 0){
-            if(strcmp(msg.payload, "/close\n") == 0){
-                stop = 0;
-                exit(1);
-            }
-        }
         caesar_encrypt(13, msg.payload);
         int byte_len = stream_buffer(bystream, &msg);
         send = write(sock, bystream, byte_len);
