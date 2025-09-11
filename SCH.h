@@ -1,4 +1,4 @@
-#ifdef SCH_H
+#ifndef SCH_H
 #define SCH_H
 
 #include <ctype.h>
@@ -19,4 +19,4 @@ void pri_key_generator();
 void pub_key_generator();
 void sch_encryptor();
 void sch_decryptor();
-#endif
+#endif //SCH_H
