@@ -77,3 +77,13 @@ int stream_buffer(unsigned char* buf, struct vi_frame* msg){
 
     return pos + msg->payload_size;
 }
+
+int proto_stream_buffer(unsigned char* buf, struct vi_proto* header, int iplen){
+    int pos = iplen;
+    *(int *)(buf +pos) = header->src; pos += sizeof(uint32_t);
+    *(int *)(buf +pos) = header->dest; pos += sizeof(uint32_t);
+    *(int *)(buf +pos) = header->nhop; pos += sizeof(uint32_t);
+    *(int *)(buf +pos) = header->isdest; pos += 1;
+
+    return 0;
+}

@@ -31,7 +31,6 @@ void *listener(void *nsock){
     int listen;
     int header[3];
     int sock = *(int *) nsock;
-    char listen_buffer[256];
     while(stop) {
         if (stop == 0) break;
         time_t timestamp;

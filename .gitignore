@@ -4,4 +4,4 @@
 /.vscode
 *.db
 /test
-/*/*.py
+/src/dijkstras

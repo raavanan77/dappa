@@ -16,9 +16,9 @@ struct vi_frame {
 };
 
 struct vi_proto {
-    uint8_t src;
-    uint8_t dest;
-    uint8_t nhop;
+    uint32_t src;
+    uint32_t dest;
+    uint32_t nhop;
     bool isdest;
 };
 
@@ -27,5 +27,7 @@ void caesar_encrypt(int key, string word);
 void caesar_decrypt(int key, string word);
 
 int stream_buffer(unsigned char* buf, struct vi_frame* msg);
+
+int proto_stream_buffer(unsigned char* buf, struct vi_proto* header, int iplen);
 
 #endif // VI_H
