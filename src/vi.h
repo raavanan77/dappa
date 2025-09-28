@@ -5,6 +5,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define INSERT_MSG "INSERT INTO messages VALUES (?, ?, ?, ?)"
+#define DELETE_MSG "DELETE from messages where message = ?"
+#define SELECT_MSG "SELECT * FROM messages"
+
 typedef char* string;
 
 struct vi_frame {

@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include <signal.h>
 #include <pthread.h>
+#include <sqlite3.h>
 #include "vi.h"
 
 #define PORT 7733
@@ -22,19 +23,8 @@ static volatile int stop = 1;
 
 char help[512] = "/help - to show this meesage\n/online - to see people online\n/secure {username} - makes encrypted connection with the user\n/reconnect - reconnects users in chat with different encryption key\n/endc - ends connection\n/asecure - enable encryption by default and token refreshed every 24hrs\n";
 
-void whosup(); // Returns people who is online
-
-void command_resolver(); // Resolve and calls the user command
-
-void killserver(){
-    stop = 0;
-    printf("Server Terminated Exit code : 77\n");
-}
-
-void error(const char *msg){
-    perror(msg);
-    exit(1);
-}
+void killserver();
+void error(const char *msg);
 
 int main(int argc, char *argv[]){
     /*Declaring variables*/
@@ -118,7 +108,6 @@ int main(int argc, char *argv[]){
                                     read_byte = read(fds[i].fd, &recv_data.timestamp, sizeof(time_t));
                                     read_byte = read(fds[i].fd, recv_data.payload, recv_data.payload_size);
                                     recv_data.payload[recv_data.payload_size] = '\0';
-                                    int offset = 0;
                                     int byte_len = stream_buffer(buffered, &recv_data);
                                     int send = write(fds[z].fd, buffered, byte_len);
                                     send < 0 ? printf("ERROR routing msg\n") : printf("Routed msg to %d\n", recv_data.duuid) ;
@@ -142,4 +131,84 @@ int main(int argc, char *argv[]){
     }
     close(sockfd);
     return 0;
+}
+
+void killserver(){
+    stop = 0;
+    printf("Server Terminated Exit code : 77\n");
+}
+
+void error(const char *msg){
+    perror(msg);
+    exit(1);
+}
+
+static int callback(void *NU, int argc, char **argv, char **azColName){
+    int i;
+    for (i = 0; i < argc; i++){
+        printf("%s == %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+    }
+    printf("\n");
+    return 0;
+}
+
+sqlite3 *dbpointer(){
+    // SQLite vars
+    sqlite3 *db;
+    char db_path[256];
+    snprintf(db_path, sizeof(db_path), "%s/.config/dappa/storage.db", getenv("HOME"));
+
+    int return_code = sqlite3_open(db_path, &db);
+    if(return_code != 0){
+        error("SQLite died\n");
+        return NULL;
+    }
+    return db;
+}
+
+int post_clean_up(sqlite3 *db){
+    int rc = sqlite3_close(db);
+    if(rc == SQLITE_OK){
+        return 0;
+    }
+    return -1;
+}
+
+int db_manager(sqlite3 *db, int method){
+    /*
+    method code
+    11 - INSERT
+    12 - SELECT
+    13 - DELETE
+    14 - UPDATE
+    */
+
+    // SQLite vars
+    int return_code;
+    string errmsg = 0;
+    sqlite3_stmt *stmt;
+
+    switch (method){
+        case 11:
+            sqlite3_prepare_v2(db, INSERT_MSG, -1, &stmt, NULL);
+            return_code = sqlite3_step(stmt);   
+            if(return_code != SQLITE_DONE){
+                fprintf(stderr, "Execution failed: %s\n", sqlite3_errmsg(db));
+                sqlite3_finalize(stmt);
+                return SQLITE_ERROR;
+            }
+            sqlite3_finalize(stmt);
+            return 0;
+            break;
+        case 12:
+            return_code = sqlite3_exec(db, SELECT_MSG, callback, 0, &errmsg);
+            if(return_code != 0){
+                error("SQLite died\n");
+                return SQLITE_ERROR;
+            }
+            return 0;
+            break;
+        default:
+            break;
+    }
 }

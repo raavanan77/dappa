@@ -41,7 +41,6 @@ void *server(){
     unsigned char buffer[sizeof(header)+20];   // Buffer stream
     int node_count = 1;
 
-    sockfd = socket(AF_INET, SOCK_RAW, VIPROTO_ROUTING);
     if(sockfd == -1){
         error("well try again \n");
     }
@@ -81,8 +80,8 @@ void *clientnode(){
     struct vi_proto header;                 // Packet header
     unsigned char buffer[53];   // Buffer stream
     int node_count = 1;
-    char* hostname = "172.17.0.2";
-    char* dest= "172.17.0.3";
+    string hostname = "192.168.204.195";
+    string dest= "192.168.204.1";
     header.src = inet_addr(hostname);
     header.dest = inet_addr(dest);
     header.nhop = inet_addr(dest);
@@ -108,7 +107,7 @@ void *clientnode(){
     close(nodefd);
 }
 
-int main(int argc, char* argv[]){
+int main(int argc, string argv[]){
     pthread_t server_t, node_t;
     
     signal(SIGINT, shutoff);
