@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <ctype.h>
 #include <string.h>
 #include <time.h>
@@ -6,9 +7,6 @@
 // Constants
 #define SMALLCAP 32
 #define ALPHALEN 26
-
-// Type definitions
-typedef char* string;
 
 // Implementation
 void caesar_encrypt(int key, string word)
@@ -69,8 +67,8 @@ void sub_encrypt(string key, string word)
 // Bytestream helper Function
 int stream_buffer(unsigned char* buf, struct vi_frame* msg){
     int pos =0;
-    *(int *)(buf + pos) = msg->suuid; pos+= sizeof(int);
-    *(int *)(buf + pos) = msg->duuid; pos+= sizeof(int);
+    memcpy(buf+pos, msg->suuid, 16); pos+= 16;
+    memcpy(buf+pos, msg->duuid, 16); pos+= 16;
     *(int *)(buf + pos) = msg->payload_size; pos+= sizeof(int);
     *(time_t *)(buf + pos) = msg->timestamp; pos+= sizeof(time_t);
     memcpy(buf+pos, msg->payload, msg->payload_size);
@@ -86,4 +84,34 @@ int proto_stream_buffer(unsigned char* buf, struct vi_proto* header, int iplen){
     *(int *)(buf +pos) = header->isdest; pos += 1;
 
     return 0;
+}
+
+int login_buffer(unsigned char* buf, struct usersession* user){
+    int pos = 0;
+    memcpy(buf+pos, user->name, 16);; pos += 16;
+    *(int *)(buf + pos) = user->islooged;
+
+    return pos;
+
+}
+
+int writefile(struct usersession* data){
+    FILE* fs = fopen("/home/raavanan/.config/dappa/psm", "w+b");
+    printf("FS : %d\n", fs);
+    if(fs > 0){
+        printf("name :%s", data->name);
+        int w = fwrite(data, 1, sizeof(struct usersession), fs);
+        if(w > 0) return 0;
+    }
+    return 1;
+}
+
+int readfile(struct usersession* data){
+    FILE* fs = fopen("/home/raavanan/.config/dappa/psm", "r");
+    int w = fread(data, 1, sizeof(struct usersession), fs);
+    printf("Buffers read :%d\n", w);
+    if (w > 0){
+        return 0;
+    }
+    return 1;
 }

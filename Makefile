@@ -5,9 +5,9 @@ src=./src/
 vspf: $(src)vi.c $(src)vspf.c
 	$(CC) -o $(buliddir)vspf.o $(src)vspf.c $(src)vi.c
 server: $(src)vi.c $(src)server.c
-	$(CC) -o $(buliddir)server.o $(src)server.c $(src)vi.c 
+	$(CC) -o $(buliddir)server.o $(src)server.c $(src)vi.c -lsqlite3
 client: $(src)vi.c $(src)client.c
-	$(CC) -o $(buliddir)client.o $(src)client.c $(src)vi.c -lsqlite3
+	$(CC) -o $(buliddir)client.o $(src)client.c $(src)vi.c -lsqlite3 -lncurses
 cripto:
 	$(CC) -o $(buliddir)cripto.o $(src)cripto.c -lm
 ui:

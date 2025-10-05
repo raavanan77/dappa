@@ -14,8 +14,6 @@
 
 #define PORT 7733
 
-typedef char* string;
-
 struct vi_frame msg;
 struct vi_frame recv_data;
 
@@ -25,13 +23,17 @@ char help[512] = "/help - to show this meesage\n/online - to see people online\n
 
 void killserver();
 void error(const char *msg);
+static int callback(void *data, int argc, char **argv, char **azColName);
+sqlite3 *dbpointer();
+int post_clean_up(sqlite3 *db);
+int db_manager(sqlite3 *db, void *data, int method);
 
 int main(int argc, char *argv[]){
     /*Declaring variables*/
     int sockfd, portno = PORT;
     struct pollfd fds[10];
     struct connection_list {
-        int uuid;
+        char uuid[16];
         socklen_t clilen;
         struct sockaddr_in cli_addr;
     } con_list[10];
@@ -39,7 +41,14 @@ int main(int argc, char *argv[]){
     pthread_t listen_t, sender_t;
     char listen_buffer[256];
     struct sockaddr_in serv_addr;
-    
+    sqlite3 *db = dbpointer();
+    struct userlist user;
+
+    if(db == NULL){
+        error("DB is null\n");
+        return EXIT_FAILURE;
+    }
+
     if(argc < 2){
         fprintf(stderr,"ERROR, No port given. Using default port: 7733\n");
         //exit(1);
@@ -53,12 +62,12 @@ int main(int argc, char *argv[]){
     }
 
     memset(&con_list, 0, sizeof(con_list));
-    
+ 
     // Assigning address and port for socket
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     serv_addr.sin_port = htons(portno);
-    
+
     // Binds socket
     if(bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0){
         error("ERROR : Bind failed\n");
@@ -70,9 +79,10 @@ int main(int argc, char *argv[]){
 
     fds[0].fd = sockfd;
     fds[0].events = POLLIN;
+    user.leasetime = 0;
+    user.dormant = 0;
     // Capturing keyboard signal to stop the server
     signal(SIGINT, killserver);
-    int uuid = 3003;
     while(stop){
         int ready = poll(fds, user_count, -1);
 
@@ -80,30 +90,48 @@ int main(int argc, char *argv[]){
             for(int i = 0; i < user_count; i++){
                 if(fds[i].revents & POLLIN) {
                     if(i == 0){
+                        printf("Listening......\n");
                         // Accepts connection on socket and create new socket to read and write
                         int userid;
                         int new_client = accept(sockfd, (struct sockaddr *) &con_list[user_count].cli_addr, &con_list[user_count].clilen);
                         fds[user_count].fd = new_client;
                         fds[user_count].events = POLLIN;
-                        con_list[user_count].uuid = uuid;
-                        uuid+=3;
+                        int listen = read(fds[user_count].fd, user.username, 16);
+                        int dbreturn_code = db_manager(db, &user, 9);
+                        if(dbreturn_code == 1){
+                            dbreturn_code = db_manager(db, &user, 11);
+                            if(dbreturn_code == 0){
+                                dbreturn_code = db_manager(db, &user, 9);
+                                if(dbreturn_code==0){
+                                    int usersize = 0;
+                                    printf("\n == new login UUID: %d == \n", usersize);
+                                    listen = write(fds[user_count].fd, &usersize, sizeof(int));
+                                    printf("Write :%d\n", listen);
+                                }
+                            }
+                        }
+                        else{
+                            int usersize = 1;
+                            printf("\n == old login UUID: %d == \n", usersize);
+                            listen = write(fds[user_count].fd, &usersize, sizeof(int));
+                            printf("old Write :%d\n", listen);
+                        }
+                        strcpy(con_list[user_count].uuid, user.username);
+                        
                         user_count++;
-                        //int listen = read(fds[user_count].fd, &con_list[user_count].uuid, 4);
                         printf("New Client connected at socket : %d And the UUID : %d\n", new_client, con_list[user_count].uuid);
                         fflush(stdout);
                     }
                     else{
-                        int header[3];
                         unsigned char buffered[sizeof(recv_data)];
-                        int read_byte = read(fds[i].fd, header, sizeof(header));
+                        int read_byte = read(fds[i].fd, recv_data.suuid, 16);
                         if(read_byte > 0){
-                            recv_data.suuid = header[0];
-                            recv_data.duuid = header[1];
-                            recv_data.payload_size = header[2];
-                            printf("SUUID : %d DUUID : %d\n", recv_data.suuid, recv_data.duuid);
+                            read_byte = read(fds[i].fd, recv_data.duuid, 16);
+                            read_byte = read(fds[i].fd, &recv_data.payload_size, sizeof(int));
+                            printf("SUUID : %s DUUID : %s\n", recv_data.suuid, recv_data.duuid);
                             for(int z = 1; z < 3; z++){
                                 printf("CON_LIST of %d is %d\n", z, con_list[z].uuid);
-                                if(con_list[z].uuid == recv_data.duuid){
+                                if(strcmp(con_list[z].uuid, recv_data.duuid) == 0){
                                     recv_data.payload = malloc(recv_data.payload_size+1);
                                     read_byte = read(fds[i].fd, &recv_data.timestamp, sizeof(time_t));
                                     read_byte = read(fds[i].fd, recv_data.payload, recv_data.payload_size);
@@ -143,12 +171,14 @@ void error(const char *msg){
     exit(1);
 }
 
-static int callback(void *NU, int argc, char **argv, char **azColName){
+static int callback(void *data, int argc, char **argv, char **azColName){
     int i;
-    for (i = 0; i < argc; i++){
-        printf("%s == %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-    }
-    printf("\n");
+    struct userlist* user = (struct userlist*)data;
+    strcpy(user->username, argv[1]);
+    user->uuid = atoi(argv[0]);
+    user->leasetime = atoi(argv[2]);
+    user->dormant = atoi(argv[3]);
+    
     return 0;
 }
 
@@ -156,7 +186,7 @@ sqlite3 *dbpointer(){
     // SQLite vars
     sqlite3 *db;
     char db_path[256];
-    snprintf(db_path, sizeof(db_path), "%s/.config/dappa/storage.db", getenv("HOME"));
+    snprintf(db_path, sizeof(db_path), "%s/.config/dappa/server.db", getenv("HOME"));
 
     int return_code = sqlite3_open(db_path, &db);
     if(return_code != 0){
@@ -167,16 +197,17 @@ sqlite3 *dbpointer(){
 }
 
 int post_clean_up(sqlite3 *db){
-    int rc = sqlite3_close(db);
-    if(rc == SQLITE_OK){
+    int dbreturn_code = sqlite3_close(db);
+    if(dbreturn_code == SQLITE_OK){
         return 0;
     }
     return -1;
 }
 
-int db_manager(sqlite3 *db, int method){
+int db_manager(sqlite3 *db, void *data, int method){
     /*
     method code
+    9 - Find user
     11 - INSERT
     12 - SELECT
     13 - DELETE
@@ -187,11 +218,18 @@ int db_manager(sqlite3 *db, int method){
     int return_code;
     string errmsg = 0;
     sqlite3_stmt *stmt;
-
+    struct userlist* user = (struct userlist*)data;
+    string username = malloc(strlen(user->username)+1);
+    strcpy(username, user->username);
+    //user = NULL;
+    
     switch (method){
         case 11:
-            sqlite3_prepare_v2(db, INSERT_MSG, -1, &stmt, NULL);
-            return_code = sqlite3_step(stmt);   
+            sqlite3_prepare_v2(db, INSERT_USER, -1, &stmt, NULL);
+            sqlite3_bind_text(stmt, 1, user->username, -1, SQLITE_STATIC);
+            sqlite3_bind_int(stmt, 2, user->leasetime);
+            sqlite3_bind_int(stmt, 3, user->dormant);
+            return_code = sqlite3_step(stmt);
             if(return_code != SQLITE_DONE){
                 fprintf(stderr, "Execution failed: %s\n", sqlite3_errmsg(db));
                 sqlite3_finalize(stmt);
@@ -200,15 +238,35 @@ int db_manager(sqlite3 *db, int method){
             sqlite3_finalize(stmt);
             return 0;
             break;
-        case 12:
-            return_code = sqlite3_exec(db, SELECT_MSG, callback, 0, &errmsg);
-            if(return_code != 0){
-                error("SQLite died\n");
+        case 9:
+            string indbuser = malloc(sizeof(username));
+            sqlite3_prepare_v2(db, "SELECT * FROM userlist WHERE TRIM(username) = ?", -1, &stmt, NULL);
+            sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
+            while((return_code = sqlite3_step(stmt)) == SQLITE_ROW){
+                user->uuid = sqlite3_column_int(stmt, 0);
+                const char* db_username = (const char*)sqlite3_column_text(stmt, 1);
+                strncpy(user->username, db_username, 16);
+                strcpy(indbuser, db_username);
+                user->leasetime = sqlite3_column_int(stmt, 2);
+                user->dormant = sqlite3_column_int(stmt, 3);
+            }
+            if(return_code != SQLITE_DONE){
+                fprintf(stderr, "Execution failed: %s\n", sqlite3_errmsg(db));
+                //sqlite3_finalize(stmt);
                 return SQLITE_ERROR;
             }
-            return 0;
+            //sqlite3_finalize(stmt);
+            printf("User :%s\n", indbuser);
+            if(strcmp(username, indbuser) == 0){
+                return 0;
+            }
+            else{
+                return 1;
+            }
+            free(indbuser);
             break;
         default:
             break;
     }
+    free(username);
 }
