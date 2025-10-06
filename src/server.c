@@ -17,11 +17,18 @@
 struct vi_frame msg;
 struct vi_frame recv_data;
 
+struct userlist {
+    int uuid;
+    char username[16];
+    int leasetime;
+    bool dormant;
+};
+
 static volatile int stop = 1;
 
 char help[512] = "/help - to show this meesage\n/online - to see people online\n/secure {username} - makes encrypted connection with the user\n/reconnect - reconnects users in chat with different encryption key\n/endc - ends connection\n/asecure - enable encryption by default and token refreshed every 24hrs\n";
 
-void killserver();
+void killserver(int sig);
 void error(const char *msg);
 static int callback(void *data, int argc, char **argv, char **azColName);
 sqlite3 *dbpointer();
@@ -161,7 +168,7 @@ int main(int argc, char *argv[]){
     return 0;
 }
 
-void killserver(){
+void killserver(int sig){
     stop = 0;
     printf("Server Terminated Exit code : 77\n");
 }

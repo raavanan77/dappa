@@ -25,7 +25,7 @@ struct pthread_args{
     sqlite3 *db;
 };
 
-void killserver();
+void killserver(int sig);
 void error(const char *msg);
 void *listener(void *nsock);
 void *sender(void *nsock);
@@ -156,7 +156,7 @@ int main(int argc, char *argv[]){
     return 0;
 }
 
-void killserver(){
+void killserver(int sig){
     stop = 0;
     printf("Server Terminated Exit code : 77\n");
 }
@@ -452,7 +452,7 @@ void *sender(void *args){
             move(LINES - 1, 0);
             int rcw = text_inputer(comms);
             if(strcmp(comms, "/logout") == 0){
-                killserver();
+                killserver(1);
             }
             if(rcw == 0){
                 wclear(command);
