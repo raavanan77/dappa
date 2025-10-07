@@ -7,9 +7,6 @@
 #define SMALLCAP 32
 #define ALPHALEN 26
 
-// Type definitions
-typedef char* string;
-
 // Implementation
 void caesar_encrypt(int key, string word)
 {

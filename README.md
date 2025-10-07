@@ -41,6 +41,8 @@ $: ./client
 
 #For client 2
 $: ./client 127.0.0.1 7733
+
+use /q to quit from client
 ```
 
-PS: I haven't made a full user profile register and profiling so we can't use more than 2 client.
+PS: I haven't made a full user profile register and profiling so we can't use more than 2 client. And I tried to make it as full TUI bulid but it distracted me from learning System/Network programming so I ditched this here sorry. Check out branch `ncurses-attempt` for full TUI.

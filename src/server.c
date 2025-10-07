@@ -13,8 +13,6 @@
 
 #define PORT 7733
 
-typedef char* string;
-
 struct vi_frame msg;
 struct vi_frame recv_data;
 
@@ -22,16 +20,12 @@ static volatile int stop = 1;
 
 char help[512] = "/help - to show this meesage\n/online - to see people online\n/secure {username} - makes encrypted connection with the user\n/reconnect - reconnects users in chat with different encryption key\n/endc - ends connection\n/asecure - enable encryption by default and token refreshed every 24hrs\n";
 
-void whosup(); // Returns people who is online
-
-void command_resolver(); // Resolve and calls the user command
-
-void killserver(){
+void killserver(int sig){ // Close and exits the server
     stop = 0;
     printf("Server Terminated Exit code : 77\n");
 }
 
-void error(const char *msg){
+void error(const char *msg){ // Throws error
     perror(msg);
     exit(1);
 }
@@ -98,7 +92,6 @@ int main(int argc, char *argv[]){
                         con_list[user_count].uuid = uuid;
                         uuid+=3;
                         user_count++;
-                        //int listen = read(fds[user_count].fd, &con_list[user_count].uuid, 4);
                         printf("New Client connected at socket : %d And the UUID : %d\n", new_client, con_list[user_count].uuid);
                         fflush(stdout);
                     }
@@ -111,14 +104,13 @@ int main(int argc, char *argv[]){
                             recv_data.duuid = header[1];
                             recv_data.payload_size = header[2];
                             printf("SUUID : %d DUUID : %d\n", recv_data.suuid, recv_data.duuid);
-                            for(int z = 1; z < 3; z++){
+                            for(int z = 1; z < 10; z++){
                                 printf("CON_LIST of %d is %d\n", z, con_list[z].uuid);
                                 if(con_list[z].uuid == recv_data.duuid){
                                     recv_data.payload = malloc(recv_data.payload_size+1);
                                     read_byte = read(fds[i].fd, &recv_data.timestamp, sizeof(time_t));
                                     read_byte = read(fds[i].fd, recv_data.payload, recv_data.payload_size);
                                     recv_data.payload[recv_data.payload_size] = '\0';
-                                    int offset = 0;
                                     int byte_len = stream_buffer(buffered, &recv_data);
                                     int send = write(fds[z].fd, buffered, byte_len);
                                     send < 0 ? printf("ERROR routing msg\n") : printf("Routed msg to %d\n", recv_data.duuid) ;
@@ -140,6 +132,6 @@ int main(int argc, char *argv[]){
             }
         }
     }
-    close(sockfd);
+    close(fds[0].fd);
     return 0;
 }

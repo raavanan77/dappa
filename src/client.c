@@ -17,7 +17,7 @@ struct vi_frame msg;
 struct vi_frame recv_data;
 struct tm *ltime;
 
-void killserver(){
+void killserver(int sig){
     stop = 0;
     printf("Server Terminated Exit code : 77\n");
 }
@@ -45,17 +45,19 @@ void *listener(void *nsock){
                 listen = read(sock, &timestamp, sizeof(time_t));
                 recv_data.timestamp = timestamp;
                 ltime = localtime(&timestamp);
-                printf("Time : %s => ", asctime(ltime));
                 recv_data.payload = malloc(recv_data.payload_size+1);
                 listen = read(sock, recv_data.payload, recv_data.payload_size);
                 recv_data.payload[recv_data.payload_size] = '\0';
                 caesar_decrypt(-13, recv_data.payload);
-                printf("Client says: %s\n", recv_data.payload);
+                printf("\rClient says: %s", recv_data.payload);
+                printf(" @ %s\nEnter your message:", asctime(ltime));
+                fflush(stdout);
                 free(recv_data.payload);
             }
         }
         if(listen <= 0) break;
     }
+    close(sock);
 }
 
 void *sender(void *nsock){
@@ -69,7 +71,8 @@ void *sender(void *nsock){
         memset(buffer, 0, 256);
         fgets(buffer, 255, stdin);
         buffer[strcspn(buffer, "\n")] = '\0';
-        if(strlen(buffer) > 0 && strcmp(buffer,"/close") == 0){
+        printf("\rMe: %s\n", buffer);
+        if(strlen(buffer) > 0 && (strcmp(buffer,"/quit") == 0 || strcmp(buffer,"/q") == 0)){
             close(sock);
             stop = 0;
             exit(1);
@@ -89,6 +92,7 @@ void *sender(void *nsock){
         free(msg.payload);
         if(send < 0) error("ERROR : Writing to socket\n");
     }
+    close(sock);
 }
 
 int main(int argc, char *argv[]){
